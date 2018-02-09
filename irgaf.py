@@ -5,6 +5,7 @@
 
 from Bio import SeqIO
 from Bio import motifs
+from Bio import Alphabet
 from BCBio import GFF
 
 # Configuration, define these vars
@@ -15,26 +16,31 @@ construct_file = "construct.fa"
 
 #the_genome = list(SeqIO.parse(genome_fasta,"fasta"))
 the_gff = list(GFF.parse(gff_file))
-construct = list(SeqIO.parse(construct_file,"fasta"))
+construct = list(SeqIO.parse(construct_file,"fasta",Alphabet.DNAAlphabet()))
 
 #for record in the_gff:
 #  print(record.features)
 
-def find_homology(gff,construct,search_length=24):
-  construct_end_left= motifs.create([construct[:search_length].seq])
-  construct_end_right = motifs.create([construct[-search_length:].seq])
+def find_recombination_site(gff,construct,search_length=24):
+  construct_end_left= motifs.create([construct[:search_length].seq],alphabet=construct.seq.alphabet)
+  construct_end_right = motifs.create([construct[-search_length:].seq],alphabet=construct.seq.alphabet)
 #
 #  for chromosome in gff:
   chromosome = gff[10]
+  chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
 #
-#    for position,score in pssm.search(test_seq, threshold=3.0):
-  search_left = list(construct_end_left.counts.normalize(pseudocounts=0.1).log_odds().search(chromosome.seq,threshold=3))
-  return(search_left[0])
+#  search_left = construct_end_left.counts.normalize(pseudocounts=0.1).log_odds().search(chromosome.seq,threshold=30)
+  left_match = list(
+    construct_end_left.instances.search(chromosome.seq)
+    ,construct_end_left.instances.search(chromosome.seq)
+    )[0]
+  right_match = list(construct_end_right.instances.search(chromosome.seq))[0]
+  return(left_match+right_match)
 #  return(construct.seq+"\n"+construct_end_left.seq+"\n"+construct_end_right.seq)
   
 
 
-print(find_homology(the_gff,construct[0]))
+print(find_recombination_site(the_gff,construct[0]))
 
 
 
