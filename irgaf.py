@@ -14,37 +14,74 @@ gff_file = "S288C_reference_genome_R64-2-1_20150113/saccharomyces_cerevisiae_R64
 construct_file = "construct.fa"
 # Later, should be setup as arguments
 
-#the_genome = list(SeqIO.parse(genome_fasta,"fasta"))
 the_gff = list(GFF.parse(gff_file))
-construct = list(SeqIO.parse(construct_file,"fasta",Alphabet.DNAAlphabet()))
+construct = list(SeqIO.parse(construct_file,"fasta"))
 
-#for record in the_gff:
-#  print(record.features)
+#
+#
+#
+#
+#
+#
+# rewrite to just shrink in the homology to the first base of change
+#
+#
+#
+#
+#
+#
 
-def find_recombination_site(gff,construct,search_length=24):
-  construct_end_left= motifs.create([construct[:search_length].seq],alphabet=construct.seq.alphabet)
-  construct_end_right = motifs.create([construct[-search_length:].seq],alphabet=construct.seq.alphabet)
-#
-#  for chromosome in gff:
-  chromosome = gff[10]
-  chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
-#
+def find_recombination_sites(gff,construct,search_length=24):
+  construct_end_left= motifs.create([construct[:search_length].seq])
+  construct_end_right = motifs.create([construct[-search_length:].seq])
+  for chromosome_number,chromosome in enumerate(gff):
+    if chromosome_number != 10:
+      continue
+    chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
 #  search_left = construct_end_left.counts.normalize(pseudocounts=0.1).log_odds().search(chromosome.seq,threshold=30)
-  left_match = list(
-    construct_end_left.instances.search(chromosome.seq)
-    ,construct_end_left.instances.search(chromosome.seq)
-    )[0]
-  right_match = list(construct_end_right.instances.search(chromosome.seq))[0]
-  return(left_match+right_match)
-#  return(construct.seq+"\n"+construct_end_left.seq+"\n"+construct_end_right.seq)
+    matches = []
+    for left_seed in construct_end_left.instances.search(chromosome.seq):
+      for right_seed in construct_end_right.instances.search(
+          chromosome.seq[left_seed[0]:]
+          ):
+        a_match = (chromosome_number
+          ,left_seed[0]
+          ,left_seed[0]+right_seed[0]+search_length
+          ,"+"
+          )
+        matches.append(a_match)
+    rev_chromosome =  chromosome.reverse_complement()
+    for left_seed in construct_end_left.instances.search(rev_chromosome.seq):
+      for right_seed in construct_end_right.instances.search(
+          rev_chromosome.seq[left_seed[0]:]
+          ):
+        a_match = (chromosome_number
+          ,len(rev_chromosome.seq)-left_seed[0]
+          ,len(rev_chromosome.seq)-
+            (left_seed[0]+right_seed[0]+search_length)
+          ,"-"
+          )
+        matches.append(a_match)
+  length_construct = len(construct)
+  print("Construct is "+str(length_construct)+"bp long.")
+  print("I found homologies at spans:")
+  for each_match in matches:
+    print("\t"+str(each_match[2]-each_match[1])+"bp long on "+
+      "chromosome "+gff[each_match[0]].id+", from "+
+      str(each_match[1])+" to "+str(each_match[2]))
+  return(matches)
+
+def recombine_at_match(gff,construct,this_match):
+  chromosome_number = this_match[0]
+  match_start = this_match[1]
+  match_end = this_match[2]
+  match_length = match_end-match_start
+  match_strand = this_match[3]
+  construct_length = len(construct)
+  shift_length = construct_length-match_length
+
+
   
-
-
-print(find_recombination_site(the_gff,construct[0]))
-
-
-
-#for position, score in pssm.search(test_seq, threshold=3.0):
-#     print("Position %d: score = %5.3f" % (position, score))
-#pos is located at test_seq[pos:pos+len(m)] 
+some_matches = find_recombination_sites(the_gff,construct[0])
+#print(recombine_at_match(the_gff,construct[0],(10,513905,513985,"+")))
 
