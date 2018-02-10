@@ -9,79 +9,187 @@ from Bio import Alphabet
 from BCBio import GFF
 
 # Configuration, define these vars
-#genome_fasta = "S288C_reference_genome_R64-2-1_20150113/S288C_reference_sequence_R64-2-1_20150113.fsa"
-gff_file = "S288C_reference_genome_R64-2-1_20150113/saccharomyces_cerevisiae_R64-2-1_20150113.gff"
-construct_file = "construct.fa"
 # Later, should be setup as arguments
+gff_file = "S288C_reference_genome_R64-2-1_20150113/saccharomyces_cerevisiae_R64-2-1_20150113.gff"
+construct_file = "construct.gff"
+output_file = "test.gff"
+homology_region = [0,24] # how bit of a slice to take off the ends?
 
-the_gff = list(GFF.parse(gff_file))
-construct = list(SeqIO.parse(construct_file,"fasta"))
 
-#
-#
-#
-#
-#
-#
-# rewrite to just shrink in the homology to the first base of change
-#
-#
-#
-#
-#
-#
 
-def find_recombination_sites(gff,construct,search_length=24):
-  construct_end_left= motifs.create([construct[:search_length].seq])
-  construct_end_right = motifs.create([construct[-search_length:].seq])
+
+
+the_gff   = list(GFF.parse(gff_file))
+#construct = list(SeqIO.parse(construct_file,"fasta"))[0]
+construct = list(GFF.parse(construct_file))[0]
+
+
+
+
+
+def find_recombination_sites(gff,construct
+  ,left_homology_slice,right_homology_slice
+  ):
+  
+  # For each chromosome, without a dict lookup:
   for chromosome_number,chromosome in enumerate(gff):
+    
+    # For debugging
     if chromosome_number != 10:
       continue
+    
+    # Because alphabets are hard to inherit I suppose
     chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
-#  search_left = construct_end_left.counts.normalize(pseudocounts=0.1).log_odds().search(chromosome.seq,threshold=30)
+    
+    # List to hold all matches
     matches = []
-    for left_seed in construct_end_left.instances.search(chromosome.seq):
-      for right_seed in construct_end_right.instances.search(
-          chromosome.seq[left_seed[0]:]
-          ):
-        a_match = (chromosome_number
-          ,left_seed[0]
-          ,left_seed[0]+right_seed[0]+search_length
-          ,"+"
-          )
-        matches.append(a_match)
+    
+    # We start looking from the plus strand, for each match on the
+    # left
+    for each_result in (
+      list_of_slices_for_recombine(chromosome
+        ,construct,left_homology_slice,right_homology_slice
+        )
+      ):
+      matches.append([chromosome_number,"+",each_result])
+    
+    # Then we flip around the rev_chromosome and look from the other end
     rev_chromosome =  chromosome.reverse_complement()
-    for left_seed in construct_end_left.instances.search(rev_chromosome.seq):
-      for right_seed in construct_end_right.instances.search(
-          rev_chromosome.seq[left_seed[0]:]
-          ):
-        a_match = (chromosome_number
-          ,len(rev_chromosome.seq)-left_seed[0]
-          ,len(rev_chromosome.seq)-
-            (left_seed[0]+right_seed[0]+search_length)
-          ,"-"
-          )
-        matches.append(a_match)
-  length_construct = len(construct)
-  print("Construct is "+str(length_construct)+"bp long.")
-  print("I found homologies at spans:")
-  for each_match in matches:
-    print("\t"+str(each_match[2]-each_match[1])+"bp long on "+
-      "chromosome "+gff[each_match[0]].id+", from "+
-      str(each_match[1])+" to "+str(each_match[2]))
+    for each_result in (
+      list_of_slices_for_recombine(rev_chromosome
+        ,construct,left_homology_slice,right_homology_slice
+        )
+      ):
+# NEED TO FLIP AROUND COORDS TO FORWARD!!!
+      matches.append([chromosome_number,"-",each_result])
+  
   return(matches)
 
-def recombine_at_match(gff,construct,this_match):
-  chromosome_number = this_match[0]
-  match_start = this_match[1]
-  match_end = this_match[2]
-  match_length = match_end-match_start
-  match_strand = this_match[3]
-  construct_length = len(construct)
-  shift_length = construct_length-match_length
 
 
+
+
+
+def list_of_slices_for_recombine(reference,construct
+    ,left_slice,right_slice
+    ):
   
-some_matches = find_recombination_sites(the_gff,construct[0])
-#print(recombine_at_match(the_gff,construct[0],(10,513905,513985,"+")))
+  recombines = []
+  
+  for left_match in (
+    extended_matches(reference,construct,left_slice)
+    ):
+    
+    for right_match in (
+      extended_matches(reference,construct,right_slice)
+      ):
+      
+      recombines.append([left_match,right_match])
+  
+  return(recombines)
 
+
+
+
+
+def extended_matches(chromosome,construct,seed_slice):
+  
+  # We start in from the left of the sequence, and try to find
+  # perfect match, extend it a bit, then return start and stop
+  
+  seed_motif = motifs.create([construct.seq[slice(*seed_slice)]])
+  
+  matches = []
+  
+    # This is for fuzzy matching 
+    #  search_left = (construct_end_left.counts
+    #    .normalize(pseudocounts=0.1).log_odds()
+    #    .search(chromosome.seq,threshold=30)
+  
+  for seed_pos,seed_seq in (
+    seed_motif.instances.search(chromosome.seq)
+    ):
+  
+    match_start = seed_pos
+    match_end   = seed_pos+len(seed_seq)
+  
+    try:
+      while (construct.seq[match_start-seed_pos+seed_slice[0]] == 
+        chromosome.seq[match_start]
+        ):
+        match_start -= 1
+      else:
+        match_start += 1
+    except:
+      match_start += 1
+  
+    try:
+      while (construct.seq[match_end-seed_pos+seed_slice[0]] == 
+        chromosome.seq[match_end]
+        ):
+        match_end += 1
+      else:
+        match_end -= 1
+    except:
+      match_end -= 1
+    
+    # These are where things match
+    reference_match = [match_start,match_end]
+    construct_match = [match_start-seed_pos+seed_slice[0]
+      ,match_end-seed_pos+seed_slice[0]
+      ]
+    
+    # Here, I've got to flip it around because indicies are weird
+    # in python with regards to the end...
+#DELETE?
+#    for i,j in enumerate(construct_match):
+#      if construct_match[i] < 0:
+#        construct_match[i] = len(construct.seq)-construct_match[i]+1
+    
+    matches.append([reference_match,construct_match])
+  
+  return(matches)
+
+
+
+
+
+def recombine_at_match(gff,construct,this_match):
+  
+  chromosome = gff[this_match[0]]
+  
+  excise_start = this_match[2][0][0][1]
+  excise_end = this_match[2][1][0][0]
+  excise_length = excise_end - excise_start
+  
+  integrate_start = this_match[2][0][1][1]
+  integrate_end = this_match[2][1][1][0]
+  integrate_length = integrate_end - integrate_start
+  
+  shift_length = integrate_length-excise_length
+  
+  gff[this_match[0]] = (
+    chromosome[:excise_start] +
+    construct[integrate_start:integrate_end] +
+    chromosome[excise_end:]
+    )
+  
+  return(gff)
+
+
+#" part of ~/.vimrc
+#" highlight tabs and trailing spaces
+#set listchars=tab:>-,trail:-
+#set list  
+
+
+if __name__ == "__main__":
+  some_matches = find_recombination_sites(the_gff
+    ,construct
+    ,[3,24],[len(construct.seq)-24+1,len(construct.seq)-3+1]
+    )
+  for each_match in some_matches:
+    the_gff = recombine_at_match(the_gff,construct,each_match)
+  
+  with open(output_file, "w") as out_handle:
+    GFF.write(the_gff,out_handle)
