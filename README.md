@@ -1,33 +1,17 @@
 This is supposed to be a tool to make it easier for folks to just
 chuck a modification into a genome.
 
-Should take in some engineering command and sequence, then edit
-the FASTA file and GFF file, and regenerate FAI for you.
-
-Just thinking about homologous recombination from a PCR product.
-
-===
-
-Names:
-
-- yuRecombinator
-- Idealized Recombinator of GFF And FASTA (IRGAF)
+Basically, it's gonna take two GFF3 files, a genome and a construct.
+It looks for perfect matches to start extending from, figures all
+the perfect homology, then just sticks the new construct sequence
+in between the two homology bits on the genome.
 
 ===
 
-Inputs:
+TODO
 
-- original FASTA and GFF files
-- FASTA-esque file that has name and commands, currently RECOMBINE
-- take the outside 30 and search the genome, find the location
-- swap those sequences, bark and die noisily if weird
-
-===
-
-Procedure 
-
-- read in all three files
-- parse editing commands
-- search function to find the sequence to recombine, and orientation
-- function to swap the sequence, with right orientation, and then
-  update the gff file and move everything appropriately
+- make it search all chromosomes (time thing, not for debugging)
+- make it use the reverse (swap the indicies)
+- make options and crap
+- figure better way to call faidx
+- call IGV?
