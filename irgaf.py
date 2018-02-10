@@ -7,15 +7,16 @@ from Bio import SeqIO
 from Bio import motifs
 from Bio import Alphabet
 from BCBio import GFF
+from subprocess import call
 
 # Configuration, define these vars
 # Later, should be setup as arguments
 gff_file = "S288C_reference_genome_R64-2-1_20150113/saccharomyces_cerevisiae_R64-2-1_20150113.gff"
 construct_file = "construct.gff"
-output_file = "test.gff"
 homology_region = [0,24] # how bit of a slice to take off the ends?
 
 
+output_base = "test"
 
 
 
@@ -173,6 +174,7 @@ def recombine_at_match(gff,construct,this_match):
     construct[integrate_start:integrate_end] +
     chromosome[excise_end:]
     )
+  gff[this_match[0]].id = chromosome.id
   
   return(gff)
 
@@ -184,6 +186,7 @@ def recombine_at_match(gff,construct,this_match):
 
 
 if __name__ == "__main__":
+  
   some_matches = find_recombination_sites(the_gff
     ,construct
     ,[3,24],[len(construct.seq)-24+1,len(construct.seq)-3+1]
@@ -191,5 +194,17 @@ if __name__ == "__main__":
   for each_match in some_matches:
     the_gff = recombine_at_match(the_gff,construct,each_match)
   
-  with open(output_file, "w") as out_handle:
-    GFF.write(the_gff,out_handle)
+  with open(output_base+".gff", "w") as out_gff, open(output_base+".fa", "w") as out_fasta:
+    GFF.write(the_gff,out_gff)
+    out_fasta.write("")
+
+  with open(output_base+".gff", "a") as out_gff,open(output_base+".fa", "a") as out_fasta:
+    out_gff.write("##FASTA\n")
+    for i,chromosome in enumerate(the_gff):
+      out_gff.write(">"+chromosome.id+"\n")
+      out_gff.write(str(chromosome.seq)+"\n")
+      out_fasta.write(">"+chromosome.id+"\n")
+      out_fasta.write(str(chromosome.seq)+"\n")
+  
+  call("samtools faidx "+output_base+".fa",shell=True)
+
