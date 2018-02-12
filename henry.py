@@ -12,7 +12,7 @@ from subprocess import call
 # Configuration, define these vars
 # Later, should be setup as arguments
 gff_file = "S288C_reference_genome_R64-2-1_20150113/saccharomyces_cerevisiae_R64-2-1_20150113.gff"
-construct_file = "construct.gff"
+construct_file = "BarcodeLibrary1.gff"
 homology_region = [0,24] # how bit of a slice to take off the ends?
 
 
@@ -35,9 +35,9 @@ def find_recombination_sites(gff,construct
   # For each chromosome, without a dict lookup:
   for chromosome_number,chromosome in enumerate(gff):
     
-    # For debugging
-    if chromosome_number != 10:
-      continue
+    # For debugging, for speed
+#    if chromosome_number != 1:
+#      continue
     
     # Because alphabets are hard to inherit I suppose
     chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
@@ -191,9 +191,13 @@ if __name__ == "__main__":
     ,construct
     ,[3,24],[len(construct.seq)-24+1,len(construct.seq)-3+1]
     )
+
+  print("I may have found a match ? ")
+  print(some_matches)
+
   for each_match in some_matches:
     the_gff = recombine_at_match(the_gff,construct,each_match)
-  
+
   with open(output_base+".gff", "w") as out_gff, open(output_base+".fa", "w") as out_fasta:
     GFF.write(the_gff,out_gff)
     out_fasta.write("")
