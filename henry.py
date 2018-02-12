@@ -31,19 +31,22 @@ construct = list(GFF.parse(construct_file))[0]
 def find_recombination_sites(gff,construct
   ,left_homology_slice,right_homology_slice
   ):
+
+  # List to hold all matches
+  matches = []
+    
   
   # For each chromosome, without a dict lookup:
   for chromosome_number,chromosome in enumerate(gff):
+  
+    print("Looking on chromosome "+chromosome.id)
     
     # For debugging, for speed
-#    if chromosome_number != 1:
+#    if chromosome_number > 2:
 #      continue
     
     # Because alphabets are hard to inherit I suppose
     chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
-    
-    # List to hold all matches
-    matches = []
     
     # We start looking from the plus strand, for each match on the
     # left
@@ -53,6 +56,8 @@ def find_recombination_sites(gff,construct
         )
       ):
       matches.append([chromosome_number,"+",each_result])
+      print("\tI may have found a match ? ")
+      print("\t+ "+str(each_result))
     
     # Then we flip around the rev_chromosome and look from the other end
     rev_chromosome =  chromosome.reverse_complement()
@@ -61,8 +66,10 @@ def find_recombination_sites(gff,construct
         ,construct,left_homology_slice,right_homology_slice
         )
       ):
-# NEED TO FLIP AROUND COORDS TO FORWARD!!!
       matches.append([chromosome_number,"-",each_result])
+# NEED TO FLIP AROUND COORDS TO FORWARD!!!
+      print("\tI may have found a match ? ")
+      print("\t- "+str(each_result))
   
   return(matches)
 
@@ -192,8 +199,8 @@ if __name__ == "__main__":
     ,[3,24],[len(construct.seq)-24+1,len(construct.seq)-3+1]
     )
 
-  print("I may have found a match ? ")
-  print(some_matches)
+  print()
+  print("I found "+str(len(some_matches))+" matches.")
 
   for each_match in some_matches:
     the_gff = recombine_at_match(the_gff,construct,each_match)
