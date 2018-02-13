@@ -18,6 +18,7 @@ homology_region = [0,24] # how bit of a slice to take off the ends?
 
 output_base = "test"
 
+#print(list(SeqIO.parse("BarcodeLibrary1.ape", "genbank"))[0].features[0])
 
 
 the_gff   = list(GFF.parse(gff_file))
