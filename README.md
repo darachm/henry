@@ -1,20 +1,20 @@
-*H*elp *E*dit *N*ew *R*eference of *Y*east genome
 
+# *H*elp *E*dit *N*ew *R*eference of *Y*east genome
 
-This is supposed to be a tool to make it easier for folks to just
+This is a tool supposed to make it easier for folks to just
 chuck a modification into a genome.
 
-Basically, it's gonna take two GFF3 files, a genome and a construct.
-It looks for perfect matches to start extending from, figures all
-the perfect homology, then just sticks the new construct sequence
-in between the two homology bits on the genome.
+The aim is to take a construct in genbank format, and recombine
+that into the reference yeast genome by recombining based on left and
+right arm perfect homology. It then generates a new indexed FASTA
+file of the genome and a GFF annotation, with the genbank annotations
+carried over as approximate GFF3 annotations.
 
-===
+## ToDo
 
-TODO
-
-- make it search all chromosomes (time thing, not for debugging)
-- make it use the reverse (swap the indicies)
-- make options and crap
-- figure better way to call faidx
-- call IGV?
+- Make it take options, for a more reasonable interface.
+- Make it use the reverse (swap the indicies). Currently, it just
+  searches the plus strand.
+- Read in Genbank format for the construct !!!
+- Figure out a better way to call the `faidx` program (or generate
+  it in script???)
