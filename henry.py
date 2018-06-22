@@ -275,7 +275,7 @@ if __name__ == "__main__":
     print("===")
     print("SETTINGS:")
     for key, value in vars(args).items():
-        print("Argument : "+key.ljust(18)+"\tis\n\t\t"+str(value))
+        print("Argument : "+key.ljust(18)+"\tis\n\t"+str(value))
 
     if int(args.mismatches) > 0:
         print()
@@ -367,18 +367,28 @@ if __name__ == "__main__":
         GFF.write(the_reference,out_gff)
         out_fasta.write("")
     with open(args.output_base+".gff", "a") as out_gff, \
-            open(args.output_base+".fa", "a") as out_fasta:
+            open(args.output_base+".fa", "a") as out_fasta, \
+            open(args.output_base+".fa.fai", "w") as out_fasta_index:
         out_gff.write("##FASTA\n")
+        index_offset = 0
         for i,chromosome in enumerate(the_reference):
             out_gff.write(">"+chromosome.id+"\n")
             out_gff.write(str(chromosome.seq)+"\n")
             out_fasta.write(">"+chromosome.id+"\n")
             out_fasta.write(str(chromosome.seq)+"\n")
+            out_fasta_index.write(chromosome.id+"\t"+
+                str(2+len(chromosome.id))+"\t"+
+                str(2+len(chromosome.id)+len(chromosome.seq))+"\t"+
+                str(2+len(chromosome.id)+len(chromosome.seq)+1)+"\n"
+                )
+            index_offset += 3 + len(chromosome.id) + len(chromosome.seq)
+
+
 
     # Then, we try to index it for you so you can IGV easily.
-    try:
-        call("samtools faidx "+args.output_base+".fa",shell=True)
-    except:
-        raise("well you don't have samtools configured for use")
+#    try:
+#        call("samtools faidx "+args.output_base+".fa",shell=True)
+#    except:
+#        raise("well you don't have samtools configured for use")
 
 
