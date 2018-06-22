@@ -277,6 +277,13 @@ if __name__ == "__main__":
     for key, value in vars(args).items():
         print("Argument : "+key.ljust(18)+"\tis\n\t\t"+str(value))
 
+    if int(args.mismatches) > 0:
+        print()
+        print("FYI, you set mismatches > 0. That is slooooooooow. "+
+            "If you can get by with using 0 mismatches, please do "+
+            "so.") 
+        print()
+
     # We want a GFF 3 with the sequence information at the bottom,
     # because that's our source of the chromosome info.
     the_reference = list(GFF.parse(args.referenceGFF))
@@ -334,11 +341,11 @@ if __name__ == "__main__":
         # Go find some matches
         some_matches = find_recombination_sites(
             the_reference, each_construct,
-            [args.homology_start_5, args.homology_end_5],
-            [len(each_construct.seq)-args.homology_end_3+1, 
-                len(each_construct.seq)-args.homology_start_3+1],
-            mismatches_5=args.mismatches_5,
-            mismatches_3=args.mismatches_3
+            [int(args.homology_start_5), int(args.homology_end_5)],
+            [len(each_construct.seq)-int(args.homology_end_3)+1, 
+                len(each_construct.seq)-int(args.homology_start_3)+1],
+            mismatches_5=int(args.mismatches_5),
+            mismatches_3=int(args.mismatches_3)
             )
 
         print()
