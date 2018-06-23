@@ -236,9 +236,10 @@ def recombine_at_match(gff,construct,this_match):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="henry.py"+
+    parser = argparse.ArgumentParser(description="recombinator.py"+
         "Help Edit New Reference Yeast genomes, amongst other"+
-        "types of genomes. It's designed to take a construct in as "+
+        "types of genomes. Or Help Update GFF Files. "+
+        "It's designed to take a construct in as "+
         "a GenBank formatted sequence record (so ApE does that as "+
         "an export), and a reference GFF (you can get it from SGD "+
         "downloads), search for homology, and splice together a "+
