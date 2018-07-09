@@ -15,7 +15,6 @@ from Bio import Alphabet
 from BCBio import GFF
 from subprocess import call
 
-
 def find_recombination_sites( reference, construct, 
         left_homology_slice, right_homology_slice, 
         mismatches_5=0, mismatches_3=0 ):
@@ -256,7 +255,7 @@ if __name__ == "__main__":
     parser.add_argument("--mismatches",       default=0)
     parser.add_argument("--mismatches_5",     default=None)
     parser.add_argument("--mismatches_3",     default=None)
-    parser.add_argument("--output_base",      default="output")
+    parser.add_argument("--output_base",      required=True)
     args=parser.parse_args()
 
     if args.homology_start_5 is None:
