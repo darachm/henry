@@ -12,22 +12,27 @@ from Bio import SeqFeature
 from Bio import SeqIO
 from Bio import motifs
 from Bio import Alphabet
-from BCBio import GFF
+from BCBio import GFF # This BCBio is installable as bcbio-gff in pip
 from subprocess import call
 
 def find_recombination_sites( reference, construct, 
         left_homology_slice, right_homology_slice, 
         mismatches_5=0, mismatches_3=0 ):
+
+    # This looks for recombination sites, given a reference and
+    # construct sequence, and also slices of how much to use and
+    # what mismatches are tolerated (to trigger fuzzy matching)
     
     # List to hold all matches
     matches = []
 
-    # For each chromosome, without a dict lookup:
+    # For each chromosome
     for chromosome_number, chromosome in enumerate(reference):
     
+        # Note that these are biopython Seqs or SeqRecords now
         print("Looking on chromosome "+chromosome.id)
 
-        # For debugging to speed things up .......
+        # For debugging you can uncomment this to speed things up...
 #        if chromosome_number != 1:
 #            continue
         
@@ -39,7 +44,9 @@ def find_recombination_sites( reference, construct,
                 mismatches_5=mismatches_5, mismatches_3=mismatches_3
                 )
             ):
+            # If we get one, we keep it
             matches.append([chromosome_number,"+",each_result])
+            # and report it
             print("\tI may have found a match ? ")
             print("\t+ "+str(each_result))
         
@@ -55,6 +62,8 @@ def find_recombination_sites( reference, construct,
             print("\tI may have found a match ? ")
             print("\t- "+str(each_result))
     
+    # Then we return now all the matches from left and right on that
+    # reference genome
     return(matches)
 
 
@@ -62,6 +71,9 @@ def list_of_slices_for_recombine(reference, construct
         ,left_slice, right_slice,
         mismatches_5=0, mismatches_3=0,
         ):
+
+    # Here we want to return the slices for recombination, just for
+    # a reference and construct, and a certain slice off the ends
     
     recombines = []
     
@@ -78,54 +90,19 @@ def list_of_slices_for_recombine(reference, construct
             extended_matches(reference, left_match[0][0],
                 construct, right_slice, mismatches_3 )
             ):
+
+            # Note there's some inefficiencies here. If I match twice
+            # coming from the left, and twice looking to the right,
+            # then I have to re-match the two right ones for each
+            # left match, if that makes sense. Would be more 
+            # efficient to find all matches, index them, then feed
+            # them in as needed. But, this was easier to write.
             
             # If we find a match, append
             recombines.append([left_match,right_match])
     
-    # Return all recombinations
+    # Return all recombination slices
     return(recombines)
-
-
-def search_for_motif(target,query,mismatches=0):
-
-    # We copy the query sequence we're searching for so that we can
-    # make sure the alphabet is Unambiguous
-    query = Seq.Seq(str(query.seq),
-        alphabet=Alphabet.IUPAC.IUPACUnambiguousDNA())
-
-    # Then we make a motif
-    seed_motif = motifs.create([query])
-
-    # We do the same Unambiguous alphabet on the target, 
-    # the reference genome
-    target = Seq.Seq(str(target.seq),
-        alphabet=Alphabet.IUPAC.IUPACUnambiguousDNA())
-
-    if mismatches == 0:
-
-        # This is perfect matches only
-        searches = seed_motif.instances.search(target)
-
-    elif mismatches > 0:
-    
-        # Otherwise, we make a position scoring matrix, and convert
-        # to log odds so we can scan it along the genome
-        pssm = ( seed_motif.counts
-                .normalize(pseudocounts=0.1).log_odds() )
-        
-        # Some little helper vars
-        pssm_length = len(query)
-        pssm_max = pssm.max/pssm_length
-        pssm_min = pssm.min/pssm_length
-    
-        # Then we search with a threshold of mismatches tolerated
-        searches = pssm.search(target,
-            threshold=-0.001+(pssm_length-int(mismatches))*pssm_max+
-                int(mismatches)*pssm_min
-            )
-
-
-    return(searches)
 
 
 def extended_matches(chromosome,offset,construct,seed_slice,mismatches=0):
@@ -133,22 +110,31 @@ def extended_matches(chromosome,offset,construct,seed_slice,mismatches=0):
     # We start in from the left of the sequence, and try to find
     # perfect match, extend it a bit, then return start and stop
 
+    # We've got a query seed
     query_seq = construct[slice(*seed_slice)]
 
+    # And the chromosome can be partial, especially if we're looking
+    # for that second match for recombination
     chromosome = chromosome[offset:]
     
+    # Look for the motif
     searches = search_for_motif(chromosome, query_seq, mismatches=mismatches)
 
     matches = []
 
-    for seed_pos,seed in searches :
+    for seed_pos, seed in searches :
     
-        # For each seed that sticks, we get the position
+        # For each seed that sticks, we get the positions
         match_start = seed_pos
         match_end   = seed_pos+len(seed)
 
         # Then we try to walk along and test if we can resect the
-        # start of it back on both construct and genome.
+        # start of it back on both construct and genome, but only
+        # where there's perfect matching. If there isn't and it's
+        # not biologically relevant, than it'll just recombine here.
+        # If you've got a SNP way outside your altered construct
+        # that's annotated, then that just means that you'll lose the
+        # native annotations in the genome.
         try:
             while (construct.seq[match_start-seed_pos+seed_slice[0]] == 
                     chromosome.seq[match_start]
@@ -176,24 +162,78 @@ def extended_matches(chromosome,offset,construct,seed_slice,mismatches=0):
         except:
             match_end -= 1
         
-        # These are where things match
+        # These are where things match, so let's build it nicely
         reference_match = [match_start+offset,match_end+offset]
         construct_match = [match_start-seed_pos+seed_slice[0]
             ,match_end-seed_pos+seed_slice[0]
             ]
         
+        # Stick it on our list of matches
         matches.append([reference_match,construct_match])
     
+    # And return them all
     return(matches)
 
 
+def search_for_motif(target,query,mismatches=0):
+
+    # Here we're just searching for a motif 
+
+    # We copy the query sequence we're searching for so that we can
+    # make sure the alphabet is Unambiguous
+    query = Seq.Seq(str(query.seq),
+        alphabet=Alphabet.IUPAC.IUPACUnambiguousDNA())
+
+    # Then we make a motif
+    seed_motif = motifs.create([query])
+
+    # We do the same Unambiguous alphabet on the target, 
+    # the reference genome
+    target = Seq.Seq(str(target.seq),
+        alphabet=Alphabet.IUPAC.IUPACUnambiguousDNA())
+
+    if mismatches == 0:
+
+        # This is perfect matches only, super faster
+        searches = seed_motif.instances.search(target)
+
+    elif mismatches > 0:
+    
+        # Otherwise, we make a position scoring matrix, and convert
+        # to log odds so we can scan it along the genome
+        pssm = ( seed_motif.counts
+                .normalize(pseudocounts=0.1).log_odds() )
+        
+        # Some little helper vars
+        pssm_length = len(query)
+        pssm_max = pssm.max/pssm_length
+        pssm_min = pssm.min/pssm_length
+    
+        # Then we search with a threshold of mismatches tolerated
+        searches = pssm.search(target,
+            threshold=-0.001+(pssm_length-int(mismatches))*pssm_max+
+                int(mismatches)*pssm_min
+            )
+
+        # This is sooooo slow. A real tool should have some indexing
+        # to quicken the search/alignment. Maybe some sort of bash
+        # script using a BWA alignment to seed, then extend and
+        # splice using a BioPython script like this.
+
+    return(searches)
+
+
 def recombine_at_match(gff,construct,this_match):
+
+    # Here we regenerate the gff as we need it
 
     # Here, we pick out the chromosome we had a hit on
     chromosome = gff[this_match[0]]
     
     # Then we identify the start and stop coordinates of the match
-    # along the genome
+    # along the genome. Sorry about the depths of indexing, it's
+    # not transparent and you'll just have to read the function
+    # that returned the matches.
     if this_match[1] == "+":
         excise_start = this_match[2][0][0][1]
         excise_end = this_match[2][1][0][0]
@@ -236,14 +276,17 @@ def recombine_at_match(gff,construct,this_match):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="recombinator.py"+
-        "Help Edit New Reference Yeast genomes, amongst other"+
-        "types of genomes. Or Help Update GFF Files. "+
+        "Help Update GFF Files (HUGFFF)."+
         "It's designed to take a construct in as "+
         "a GenBank formatted sequence record (so ApE does that as "+
         "an export), and a reference GFF (you can get it from SGD "+
         "downloads), search for homology, and splice together a "+
         "reference. YMMV, check the work for little indels to make"+
-        "sure the indexing is right.")
+        "sure the indexing is right. And re-implement if you want"+
+        "the fuzzy matching to run in this lifetime."+
+        ""+
+        "You can specify the starts and stops for each end of the"+
+        "construct with the arguments.")
     parser.add_argument("--referenceGFF",     required=True)
     parser.add_argument("--constructGenBank", required=True)
     parser.add_argument("--homology_start",   default=0)
@@ -290,19 +333,25 @@ if __name__ == "__main__":
     for chromosome in the_reference:
         # Because alphabets are hard to inherit I suppose
         chromosome.seq.alphabet = Alphabet.IUPAC.IUPACUnambiguousDNA()
+    # You could modify this to take it from a different source, but
+    # then you'd want to modify this to make a BioPython SeqRecord
+    # with all the annotation in it. Your choice. The GFF3 is readily
+    # downloadable from SGD, and I really like the atomic format of
+    # it, I think the two together is real smart.
 
+    # Here we read in a GenBank construct
     try:
         constructs = list(SeqIO.parse(args.constructGenBank, "genbank"))
     except:
         raise("Well, I couldn't read that construct in. "+
             "Maybe that's not real genbank format?")
 
+    # Here we clean up that construct or constructs (you can put
+    # multiple in a GenBank maybe?). This is primarily for IGV to
+    # make the colors pretty, by renaming them as color. Mainly for
+    # ApE outputs.
     for each_construct in constructs:
 
-####TESTING
-#        each_construct = each_construct.reverse_complement()
-####TESTING
-    
         # Make a copy for iterating
         features_copy = list(each_construct.features)
 
